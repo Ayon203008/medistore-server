@@ -13,32 +13,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model Medicine {
-  id           String   @id @default(uuid())
-  name         String   @db.VarChar(255)
-  description  String   @db.Text
-  price        Decimal  @db.Decimal(10, 2)
-  stock        Int      @default(0)
-  image        String?  @db.Text
-  manufacturer String
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-}
-
-model Reviews {
-  id         String   @id @default(uuid())
-  rating     Int      @default(5)
-  comment    String   @db.Text
-  created_at DateTime @default(now())
-}
-
-model Categories {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(255)
-  description String   @db.Text
-  created_at  DateTime @default(now())
-}
-
 enum ROLE {
   CUSTOMER
   SELLER
@@ -52,33 +26,103 @@ enum ORDERSTATUS {
   PROCESSING
 }
 
+// * category_id seller_id
+
+model Medicine {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(255)
+  description  String   @db.Text
+  price        Decimal  @db.Decimal(10, 2)
+  stock        Int      @default(0)
+  image        String?  @db.Text
+  manufacturer String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  category_id String
+  category    Categories @relation(fields: [category_id], references: [id])
+
+  seller_id  String
+  seller     User          @relation(fields: [seller_id], references: [id])
+  orderItems Order_Items[]
+  reviews    Reviews[]
+}
+
+// *  medicine_id   customer_id 
+
+model Reviews {
+  id         String   @id @default(uuid())
+  rating     Int      @default(5)
+  comment    String   @db.Text
+  created_at DateTime @default(now())
+
+  customer_id String
+  customer    User   @relation(fields: [customer_id], references: [id])
+
+  medicine_id String
+  medicine    Medicine @relation(fields: [medicine_id], references: [id])
+}
+
+// * Nothing Require
+
+model Categories {
+  id          String     @id @default(uuid())
+  name        String     @db.VarChar(255)
+  description String     @db.Text
+  created_at  DateTime   @default(now())
+  medicines   Medicine[] // * relation with the medicines
+}
+
+// * customer_id
+
 model Orders {
   id               String      @id @default(uuid())
   total_price      Decimal     @db.Decimal(10, 2)
   status           ORDERSTATUS @default(PROCESSING)
   payment_method   String      @default("Cash on Delivery")
-  price            Decimal     @db.Decimal(10, 2)
   shipping_address String      @db.Text
   created_at       DateTime    @default(now())
   updated_at       DateTime    @updatedAt
+
+  customer_id String
+  customer    User          @relation(fields: [customer_id], references: [id])
+  orderItems  Order_Items[]
 }
+
+// * order_id medicine_id  seller_id
 
 model Order_Items {
   id       String  @id @default(uuid())
   quantity Int     @default(0)
   price    Decimal @db.Decimal(10, 2)
+
+  order_id String
+  orders   Orders @relation(fields: [order_id], references: [id])
+
+  seller_id String
+  seller    User   @relation("SellerOrders", fields: [seller_id], references: [id])
+
+  medicine_id String
+  medicine    Medicine @relation(fields: [medicine_id], references: [id])
 }
 
 model User {
-  id            String    @id
+  id            String        @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  role          ROLE          @default(CUSTOMER)
+  isBanned      Boolean       @default(false)
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
+  medicines     Medicine[]
+  orders        Orders[]
+  reviews       Reviews[]
+  
+  sellerOrders  Order_Items[] @relation("SellerOrders")
 
   @@unique([email])
   @@map("user")
